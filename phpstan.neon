@@ -1,0 +1,29 @@
+parameters:
+    level: 6
+
+    paths:
+        - src/assets
+        - src/commands
+        - src/controllers
+        - src/jobs
+        - src/migrations
+        - src/models
+        - src/rbac
+        - src/services
+        - src/validators
+        - src/tests/Unit
+
+    scanDirectories:
+        - src/tests/Support
+
+    bootstrapFiles:
+        - src/tests/_bootstrap.php
+
+    dynamicConstantNames:
+        - YII_DEBUG
+        - YII_ENV
+        - YII_ENV_DEV
+        - YII_ENV_PROD
+        - YII_ENV_TEST
+
+    tmpDir: %currentWorkingDirectory%/runtime

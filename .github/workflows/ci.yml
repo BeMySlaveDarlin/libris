@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  PHP_VERSION: '8.4'
+
+jobs:
+  static:
+    name: Статический анализ
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_mysql, intl, gd, zip
+          coverage: none
+          tools: composer:v2
+
+      - uses: ramsey/composer-install@v3
+
+      - name: Стандарты кодирования
+        run: vendor/bin/phpcs
+
+      - name: Статический анализ
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+
+  tests:
+    name: Модульные тесты
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: libris_test
+          MYSQL_USER: libris
+          MYSQL_PASSWORD: libris
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      DB_DSN: mysql:host=127.0.0.1;dbname=libris_test
+      DB_TEST_DSN: mysql:host=127.0.0.1;dbname=libris_test
+      DB_USERNAME: libris
+      DB_PASSWORD: libris
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_mysql, intl, gd, zip
+          coverage: none
+          tools: composer:v2
+
+      - uses: ramsey/composer-install@v3
+
+      - name: Миграции
+        run: php yii migrate --interactive=0
+
+      - name: Codeception
+        run: vendor/bin/codecept run Unit
+
+  e2e:
+    name: Сквозные тесты
+    runs-on: ubuntu-latest
+    needs: tests
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: libris
+          MYSQL_USER: libris
+          MYSQL_PASSWORD: libris
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      DB_DSN: mysql:host=127.0.0.1;dbname=libris
+      DB_USERNAME: libris
+      DB_PASSWORD: libris
+      E2E_BASE_URL: http://127.0.0.1:8080
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_mysql, intl, gd, zip
+          coverage: none
+          tools: composer:v2
+
+      - uses: ramsey/composer-install@v3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Миграции и демонстрационные данные
+        run: |
+          php yii migrate --interactive=0
+          php yii seed/demo
+          php yii user/create demo secret123
+
+      - name: Запуск приложения
+        run: |
+          php -S 127.0.0.1:8080 -t web > /tmp/server.log 2>&1 &
+          for i in $(seq 1 20); do
+            curl -sf http://127.0.0.1:8080/ > /dev/null && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8080/ > /dev/null || { cat /tmp/server.log; exit 1; }
+
+      - name: Playwright
+        run: npx playwright test
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
