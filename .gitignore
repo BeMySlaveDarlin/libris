@@ -13,9 +13,9 @@ phpunit.phar
 !/web/uploads/.gitkeep
 /web/uploads
 
-/tests/Support/output/*
-!/tests/Support/output/.gitkeep
-/tests/Support/_generated
+/src/tests/Support/output/*
+!/src/tests/Support/output/.gitkeep
+/src/tests/Support/_generated
 /test-results
 /playwright-report
 

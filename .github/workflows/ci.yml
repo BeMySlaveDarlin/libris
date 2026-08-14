@@ -70,6 +70,9 @@ jobs:
       - name: Миграции
         run: php yii migrate --interactive=0
 
+      - name: Сборка тестового окружения
+        run: vendor/bin/codecept build
+
       - name: Codeception
         run: vendor/bin/codecept run Unit
 
