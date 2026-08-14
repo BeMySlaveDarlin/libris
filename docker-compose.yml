@@ -1,0 +1,50 @@
+services:
+  php:
+    build: ./docker/php
+    volumes:
+      - ./:/app
+    working_dir: /app
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      YII_DEBUG: ${APP_DEBUG:-1}
+      YII_ENV: ${APP_ENV:-dev}
+      DB_DSN: mysql:host=${DB_HOST:-mysql};dbname=${DB_NAME:-libris}
+      DB_USERNAME: ${DB_USERNAME:-libris}
+      DB_PASSWORD: ${DB_PASSWORD:-libris}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      COOKIE_VALIDATION_KEY: ${COOKIE_VALIDATION_KEY:-dev-only-key}
+      SMSPILOT_API_KEY: ${SMSPILOT_API_KEY:?укажите ключ в .env}
+      SMSPILOT_SENDER: ${SMSPILOT_SENDER:-INFORM}
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - ./:/app
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - php
+
+  mysql:
+    image: mysql:8.4
+    ports:
+      - "${DB_PORT:-3307}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_NAME:-libris}
+      MYSQL_USER: ${DB_USERNAME:-libris}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-libris}
+    volumes:
+      - mysql:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/app.cnf:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${DB_PASSWORD:-libris}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  mysql:
