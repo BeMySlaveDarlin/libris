@@ -6,9 +6,11 @@ phpunit.phar
 
 /runtime/*
 !/runtime/.gitkeep
+/src/runtime
 
 /web/assets/*
 !/web/assets/.gitkeep
+!/web/uploads/.gitkeep
 /web/uploads
 
 /tests/Support/output/*
